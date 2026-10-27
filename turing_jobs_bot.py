@@ -159,6 +159,8 @@ def main():
             run_once()
         except Exception as e:
             print(f"run failed: {e}", file=sys.stderr)
+            if POLL_MINUTES <= 0:
+                sys.exit(1)
         if POLL_MINUTES <= 0:
             break
         time.sleep(POLL_MINUTES * 60)
