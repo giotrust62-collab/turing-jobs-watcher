@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: turing-jobs
@@ -45,4 +46,19 @@ jobs:
             git add seen_jobs.json
             git commit -m "Update seen jobs"
             git push
+          fi
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          prev=$(gh run list --workflow "Turing jobs watcher" --status completed --limit 1 --json conclusion -q '.[0].conclusion' || echo "")
+          if [ "$prev" != "failure" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=Turing jobs watcher failed. Details: ${RUN_URL}"
           fi
