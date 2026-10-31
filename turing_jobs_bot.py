@@ -41,8 +41,8 @@ def fetch_with_requests():
     """Fast path. Works if the site's bot protection lets plain requests through."""
     s = requests.Session()
     s.headers.update({"User-Agent": UA, "Accept": "application/json", "Origin": BASE, "Referer": f"{BASE}/jobs"})
-    s.get(f"{BASE}/jobs", timeout=30)
-    r = s.post(API, json={"pageSize": PAGE_SIZE}, timeout=30)
+    s.get(f"{BASE}/jobs", timeout=15)
+    r = s.post(API, json={"pageSize": PAGE_SIZE}, timeout=15)
     r.raise_for_status()
     return r.json()["jobs"]
 
@@ -56,7 +56,10 @@ def fetch_with_browser():
         browser = p.chromium.launch(headless=True)
         ctx = browser.new_context(user_agent=UA)
         page = ctx.new_page()
-        page.goto(f"{BASE}/jobs", wait_until="networkidle", timeout=60000)
+        # networkidle never settles on this site (analytics pings), so only wait for the
+        # document, then give the bot-protection script a few seconds to set its cookies.
+        page.goto(f"{BASE}/jobs", wait_until="domcontentloaded", timeout=45000)
+        page.wait_for_timeout(5000)
         data = page.evaluate(
             """async (size) => {
                 const r = await fetch('/api/jobs/all', {
